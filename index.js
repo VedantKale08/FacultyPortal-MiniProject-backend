@@ -22,6 +22,8 @@ mongoose
   .catch((err) => console.log(err));
 
 const Teacher = require("./models/Teacher");
+const Message = require("./models/Message");
+
 
 app.post("/api/teachers/register", async (req, res) => {
   try {
@@ -59,6 +61,8 @@ app.post("/api/teachers/register", async (req, res) => {
   }
 });
 
+
+
 app.post("/api/teachers_admin/login", async (req, res) => {
   const { email, password } = req.body;
   if (email === "admin" && password === "admin123") {
@@ -89,6 +93,8 @@ function verifyToken(req, res, next) {
     res.sendStatus(403);
   }
 }
+
+
 
 app.put("/api/teachers/profile", verifyToken, async (req, res) => {
   jwt.verify(req.token, "secretkey", async (err, authData) => {
@@ -130,6 +136,8 @@ app.put("/api/teachers/profile", verifyToken, async (req, res) => {
   });
 });
 
+
+
 app.get("/api/teachers/profile", verifyToken, async (req, res) => {
   jwt.verify(req.token, "secretkey", async (err, authData) => {
     if (err) {
@@ -146,6 +154,8 @@ app.get("/api/teachers/profile", verifyToken, async (req, res) => {
 });
 
 
+
+
 app.put("/api/teachers/lectures/:lectureId", verifyToken, async (req, res) => {
   jwt.verify(req.token, "secretkey", async (err, authData) => {
     if (err) {
@@ -154,25 +164,21 @@ app.put("/api/teachers/lectures/:lectureId", verifyToken, async (req, res) => {
       try {
         const { topicsCovered, attendance } = req.body;
 
-        // Find the teacher
         const teacher = await Teacher.findOne({ email: authData.email });
         if (!teacher) {
           return res.status(404).json({ message: "Teacher not found" });
         }
 
-        // Find the subject/lecture
         const subject = teacher.subjects.id(req.params.lectureId);
         if (!subject) {
           return res.status(404).json({ message: "Subject/lecture not found" });
         }
 
-        // Find existing lecture history entry, if any
         let lectureHistory = await LectureHistory.findOne({
           teacher: teacher._id,
           subject: subject._id,
         });
 
-        // If lecture history entry doesn't exist, create a new one; otherwise, update it
         if (!lectureHistory) {
           lectureHistory = new LectureHistory({
             teacher: teacher._id,
@@ -188,7 +194,6 @@ app.put("/api/teachers/lectures/:lectureId", verifyToken, async (req, res) => {
           lectureHistory.attendance = attendance;
         }
 
-        // Save the updated or new lecture history entry
         await lectureHistory.save();
 
         res.json({
@@ -202,6 +207,7 @@ app.put("/api/teachers/lectures/:lectureId", verifyToken, async (req, res) => {
     }
   });
 });
+
 
 
 app.get('/api/teachers/history', verifyToken, async (req, res) => {
@@ -220,6 +226,8 @@ app.get('/api/teachers/history', verifyToken, async (req, res) => {
   });
 });
 
+
+
 app.get("/api/teachers", async (req, res) => {
   try {
     const teachers = await Teacher.find();
@@ -228,6 +236,8 @@ app.get("/api/teachers", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+
 
 app.get("/api/teachers/all_history", async (req, res) => {
   try {
@@ -246,6 +256,8 @@ app.get("/api/teachers/all_history", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+
 
 app.put("/api/lecturehistory/:id", verifyToken, async (req, res) => {
   jwt.verify(req.token, "secretkey", async (err, authData) => {
@@ -282,6 +294,8 @@ app.put("/api/lecturehistory/:id", verifyToken, async (req, res) => {
   });
 });
 
+
+
 app.delete("/api/lecturehistory/:id", verifyToken, async (req, res) => {
   jwt.verify(req.token, "secretkey", async (err, authData) => {
     if (err) {
@@ -313,6 +327,8 @@ app.delete("/api/lecturehistory/:id", verifyToken, async (req, res) => {
   });
 });
 
+
+
 app.get("/api/admin_dashboard", async (req, res) => {
   try {
     const totalTeachers = await Teacher.countDocuments();
@@ -330,6 +346,8 @@ app.get("/api/admin_dashboard", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+
 
 app.get("/api/dashboard",verifyToken, async (req, res) => {
    jwt.verify(req.token, "secretkey", async (err, authData) => {
@@ -368,6 +386,8 @@ app.get("/api/dashboard",verifyToken, async (req, res) => {
   })
 });
 
+
+
 app.get("/api/teacher_timetable", verifyToken, async (req, res) => {
   jwt.verify(req.token, "secretkey", async (err, authData) => {
     if (err) {
@@ -384,6 +404,7 @@ app.get("/api/teacher_timetable", verifyToken, async (req, res) => {
       }
     }});
 });
+
 
 
 app.post("/api/teachers/addSubject", verifyToken, async (req, res) => {
@@ -413,6 +434,45 @@ app.post("/api/teachers/addSubject", verifyToken, async (req, res) => {
           .json({ message: "Subject added successfully", teacher });
       } catch (error) {
         console.error(error);
+        res.status(500).json({ error: "Server error" });
+      }
+    }
+  });
+});
+
+app.post("/api/message", async (req, res) => {
+  try {
+    const { to_all, teacher_email, subject, message } = req.body;
+    const messageData = new Message({
+      to_all,
+      teacher_email,
+      subject,
+      message
+    });
+    await messageData.save();
+    res.json({
+      message: "Message sent successfully",
+      data: messageData,
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Server error" });
+  }
+})
+
+app.get("/api/message", verifyToken, async (req, res) => {
+  jwt.verify(req.token, "secretkey", async (err, authData) => {
+    if (err) {
+      res.sendStatus(403);
+    } else {
+      try {
+        const data = await Message.find({
+          $or: [{ teacher_email: authData.email }, { to_all: true }],
+        });
+        res.json(data);
+      } catch (error) {
+        console.log(error);
         res.status(500).json({ error: "Server error" });
       }
     }
